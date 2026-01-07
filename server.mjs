@@ -11,17 +11,18 @@ app.use(express.json());
 
 const PORT = process.env.PORT;
 
-mongoose.connect(process.env.MONGO_DB_URL)
-.then(()=>{
-  console.log("DATA-BASE- CONNECTED")
-
-}).catch((err)=>{
- console.log("server crash",err)
-})
+mongoose
+  .connect(process.env.MONGO_DB_URL)
+  .then(() => {
+    console.log("DATA-BASE- CONNECTED");
+  })
+  .catch((err) => {
+    console.log("server crash", err);
+  });
 
 app.use(
   cors({
-    origin: "http://localhost:5173", 
+    origin: "http://localhost:5173",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })

@@ -8,6 +8,11 @@ import mongoose from "mongoose";
 import mail from "./Nodemailer/Mailsend_code.mjs";
 import sendsmail from "./Nodemailer/Mail_subject_code.mjs";
 import EMAIL from "./Email_Schema/Email_Schema.mjs";
+import OTP from "./Otpschema/otp_schema.mjs";
+import otpgenerate from "./otgenrate/otp_generate.mjs";
+import skills from "./skill_schema/skill_schema.mjs";
+import JOBS from "./skill_schema/job_role/job_schema.mjs";
+import analyzeUser from "./job_role_predict/job_role.mjs";
 const router = express.Router();
 
 dotenv.config();
@@ -22,19 +27,59 @@ router.post("/user/signup", async (req, res) => {
         .json({ status: 404, message: "Account Already Created" });
     }
 
+    const otp = otpgenerate();
+
+    const hashedotp = await bcrypt.hash(otp.toString(), 10);
+    await OTP.deleteOne({ email });
+    await OTP.create({
+      email,
+      otp: hashedotp,
+    });
+
+    await sendsmail({
+      to: email,
+      subject: "OTP Verification",
+      message: `Your OTP is ${otp}`,
+    });
+
+    res.status(201).json({ status: 201, message: "OTP SEND SUCSSESSFULLY" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ status: 500, message: "Something Error" });
+  }
+});
+
+router.post("/user/verify", async (req, res) => {
+  const { name, email, password, otp } = req.body;
+
+  try {
+    const otp_user = await OTP.findOne({ email });
+    if (!otp_user) {
+      return res.status(404).json({ status: 404, message: "otp expire " });
+    }
+
+    const otp_match = await bcrypt.compare(otp, otp_user.otp);
+    if (!otp_match) {
+      return res.status(404).json({ status: 404, message: "INVALID OTP" });
+    }
+
     const hashed = await bcrypt.hash(password, 10);
 
-    const new_user = await Users.create({
+    const valid_user = await Users.create({
       name,
       email,
       password: hashed,
+      role: "student",
     });
 
+    await OTP.deleteOne({ email });
     res
       .status(201)
-      .json({ status: 201, message: "Account Created Successfully" });
+      .json({ status: 201, message: "ACCOUNT CREATED SUCCESS FULLY" });
   } catch (error) {
-    res.status(500).json({ status: 500, message: "Something Error" });
+    res.status(500).json({
+      message: "OTP verification failed",
+    });
   }
 });
 
@@ -239,6 +284,61 @@ router.post("/admin/msg", tokenmiddleware, async (req, res) => {
       message: "Mail sending failed",
     });
   }
+});
+
+router.post("/users/skill", async (req, res) => {
+  const { level, requiredSkills, nextLearn } = req.body;
+
+  try {
+    const skilllevel = await skills.create({
+      level,
+      requiredSkills,
+      nextLearn,
+    });
+
+    res.status(201).json({ status: 201, message: "skill created", skilllevel });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+router.post("/user/job", async (req, res) => {
+  const { title, minLevel, minExperience,requiredSkills } = req.body;
+
+  try {
+    const joblevel = await JOBS.create({
+      title,
+      minLevel,
+      minExperience,
+      requiredSkills
+    });
+
+    res.status(201).json({ status: 201, message: "job role created" });
+  } catch (error) {
+    console.log(error);
+  }
+});
+router.post("/user/analyze", async (req, res) => {
+  let { skills, experience } = req.body;
+
+  // ✅ FIX 1: normalize skills
+  // Case 1: ["html,css"]
+  // Case 2: "html,css"
+  if (Array.isArray(skills)) {
+    skills = skills
+      .join(",")
+      .split(",")
+      .map((s) => s.trim().toUpperCase());
+  } else if (typeof skills === "string") {
+    skills = skills.split(",").map((s) => s.trim().toUpperCase());
+  }
+
+  // ✅ FIX 2: normalize experience
+  experience = Number(experience);
+
+  const result = await analyzeUser(skills, experience);
+
+  res.json(result);
 });
 
 export default router;
