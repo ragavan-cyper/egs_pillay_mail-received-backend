@@ -13,6 +13,7 @@ import otpgenerate from "./otgenrate/otp_generate.mjs";
 import skills from "./skill_schema/skill_schema.mjs";
 import JOBS from "./skill_schema/job_role/job_schema.mjs";
 import analyzeUser from "./job_role_predict/job_role.mjs";
+import Marks from "./Email_Schema/marks_schema/marks.mjs";
 const router = express.Router();
 
 dotenv.config();
@@ -303,14 +304,14 @@ router.post("/users/skill", async (req, res) => {
 });
 
 router.post("/user/job", async (req, res) => {
-  const { title, minLevel, minExperience,requiredSkills } = req.body;
+  const { title, minLevel, minExperience, requiredSkills } = req.body;
 
   try {
     const joblevel = await JOBS.create({
       title,
       minLevel,
       minExperience,
-      requiredSkills
+      requiredSkills,
     });
 
     res.status(201).json({ status: 201, message: "job role created" });
@@ -321,9 +322,6 @@ router.post("/user/job", async (req, res) => {
 router.post("/user/analyze", async (req, res) => {
   let { skills, experience } = req.body;
 
-  // ✅ FIX 1: normalize skills
-  // Case 1: ["html,css"]
-  // Case 2: "html,css"
   if (Array.isArray(skills)) {
     skills = skills
       .join(",")
@@ -333,12 +331,73 @@ router.post("/user/analyze", async (req, res) => {
     skills = skills.split(",").map((s) => s.trim().toUpperCase());
   }
 
-  // ✅ FIX 2: normalize experience
   experience = Number(experience);
 
   const result = await analyzeUser(skills, experience);
 
   res.json(result);
+});
+
+router.post("/user/marks/update", async (req, res) => {
+  const { name, reg_num, subject_name, subject_code, semester, cat, marks } =
+    req.body;
+
+  try {
+    if (!name || !reg_num || !subject_name || !subject_code) {
+      return res.status(404).json({
+        status: 404,
+        message: "ALL FIELDS REQUIRED",
+      });
+    }
+    const exsting_user = await Marks.findOne({ subject_code, semester, cat });
+    if (exsting_user) {
+      return res.status(401).json({
+        status: 401,
+        message: "subject internal marks already uploaded",
+      });
+    }
+
+    const overallmarks = await Marks.create({
+      name,
+      reg_num,
+      subject_code,
+      subject_name,
+      semester,
+      cat,
+      internal_marks: marks,
+    });
+
+    res.status(201).json({ status: 201, message: overallmarks });
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: error.message,
+    });
+  }
+});
+
+router.get("/user/mark/show", async (req, res) => {
+  const { reg_num } = req.query;
+
+  try {
+    if (!reg_num) {
+      return res.status(400).json({
+        status: 400,
+        message: "reg_num is required",
+      });
+    }
+
+    const valid_user = await Marks.find({ reg_num });
+    if (valid_user.length === 0) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "user details not found" });
+    }
+
+    res.status(200).json({ status: 200, data: valid_user });
+  } catch (error) {
+    console.log(error);
+  }
 });
 
 export default router;

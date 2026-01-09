@@ -26,8 +26,7 @@ export async function analyzeUser(skills, experience) {
       return isExpMatch && isSkillMatch;
     });
 
-    // 2. Determine current level based on matched jobs
-    // Result-la highest level job-ai base panni user level-ai sollurom
+    
     const LEVEL_ORDER = ["Beginner", "Junior", "Mid", "Senior", "Lead"];
     let currentLevel = "Beginner";
 
@@ -39,19 +38,19 @@ export async function analyzeUser(skills, experience) {
       currentLevel = highestJob.minLevel;
     }
 
-    // 3. Get Next Learn from levels schema (if matches domain)
+    
     const levels = await Skill.find();
     const matchedSkillLevel = levels.find((l) => l.level === currentLevel);
 
-    // job_role.mjs - 46th line-la irundhu replace pannunga
+    
 return {
   currentLevel: currentLevel,
   nextLearn: matchedSkillLevel
     ? matchedSkillLevel.nextLearn
     : ["Keep learning specialized skills"],
   jobsYouCanApply: eligibleJobs.map((j) => ({
-    title: j.title,      // <--- Backend-la 'title' nu mathungha
-    minLevel: j.minLevel, // <--- Name correct-ah irukkanum
+    title: j.title,      
+    minLevel: j.minLevel, 
   })),
 };
   } catch (error) {
